@@ -1,0 +1,356 @@
+---
+title: "Assignment 6 (S-670)"
+author: "FNU Anirudh"
+date: "November 20, 2015"
+output: word_document
+---
+Solution 3
+
+```{r,eval=TRUE}
+library(aplpack)
+# a)
+x = c(576, 635, 558, 578, 666, 580, 555, 661, 651, 605, 653, 575, 545, 572, 594)
+y = c(339, 330, 281, 303, 344, 307, 300, 343, 336, 313, 312, 274, 276, 288, 296)
+Data = data.frame(x,y)
+colnames(Data) <- list("LSAT","GPA")
+mean = 0.5*log(1.77637/(1-0.77637)) 
+n = 15
+var = 1/(n -3)
+se = sqrt(var)/sqrt(n)
+CI= mean + c(-1,1)*1.96*se
+CI
+
+# b)
+
+calculatePV = function(data) {
+  n = length(data[[1]])
+  rho = cor(data, method="pearson")[1,2]
+  yall = 0.5*log((1+rho)/(1-rho))
+  PV = numeric(n)
+  for( i in 1:n) {
+    rhominusi = cor(data[-i,], method="pearson")[1,2]
+    yminusi = 0.5*log((1+rhominusi)/(1- rhominusi))
+    PV[i] = n*yall - (n-1)*yminusi
+  }
+  PV
+}
+PVAll = calculatePV(Data)
+JKEstimate = mean(PVAll)
+JKEstimate
+varJK = sum((PVAll - JKEstimate)^2)/15*14
+CI = JKEstimate + c(-1,1)*qt(0.975,df=nrow(Data)-1)*sqrt(varJK)
+CI
+
+# c)
+stem.leaf(PVAll)
+plot(PVAll,main="Plot of PV values")
+PVre = calculatePV(Data[-1,])
+JM = mean(PVre)
+JM
+varJKRe = sum((PVre - JM)^2)/(14*(14-1))
+varJKRe
+#seJKRecalc = sqrt(varJK) #0.33
+CI = JM + c(-1,1)*qt(0.975,df=13)*sqrt(varJKRe)
+CI
+# d)
+bootstrap = function(data, nsim) {
+  theta = numeric(nsim)
+  varTheta = numeric(nsim)
+  
+  n = length(data[[1]])
+  index = 1:n
+  for (i in 1:nsim){
+    sampleindex= sample(index,n,replace=TRUE)
+    PViter = calculatePV(data[sampleindex, ])
+    theta[i] = mean(PViter)
+    varTheta[i] = sum((PViter - theta[i])^2)/(n*(n-1))
+  }
+  
+  ciLower = mean(theta) - 1.96*mean(varTheta)
+  ciUpper = mean(theta) + 1.96*mean(varTheta)
+  
+  output = list(thetaBS = mean(theta), varBS = mean(varTheta),
+                theta = theta, varTheta = varTheta,
+                ciLower = ciLower, ciUpper = ciUpper)
+  output
+}
+Results = bootstrap(Data, 10)
+Results
+
+
+
+```
+** e)
+ Effect of Outliers on Confidence Interval is being reduced by Bootstrapping and Jacknifing. We got 
+a) 0.89, 1.182
+b)-12.31 and 14.14 first and then 0.643,2.074 after removing outlier
+d) 0.408 and 1.551.
+Effect of Bootstrapping is reduced greatly by bootstrapping.
+
+
+Solution 4
+```{r, eval=TRUE}
+rrline1 <- function(x,y) {
+  n3 <- floor((length(x)+1.99)/3)
+  x.order <- order(x)
+  medxL <- median(x[x.order][1:n3])
+  medxR <- median(rev(x[x.order])[1:n3])
+  medyL <- median(y[x.order][1:n3])
+  medyR <- median(rev(y[x.order])[1:n3])
+  slope1 <- (medyR - medyL)/(medxR - medxL)
+  int1 <- median(y - slope1 * x)
+  # print(c(paste("Intercept = ", format(round(int1,5))),
+  #   paste("Slope = ",format(round(slope1,5)))))
+  newy <- y - slope1*x - int1
+  sumres <- sum(abs(newy))
+  list(a=int1, b=slope1, sumres = sumres, res=newy)
+}
+#Code courtesy: Prof David King Lecture Notes
+run.rrline <- function(x,y,iter=5) {
+  out.coef <- matrix(0,iter,3)
+  newy <- y
+  for (i in 1:iter) {
+    rr <- rrline1(x,newy)
+    out.coef[i,] <- c(rr$a,rr$b,rr$sumres)
+    newy <- rr$res
+  }
+  dimnames(out.coef) <- list(format(1:iter),c("a","b","|res|"))
+  aa <- sum(out.coef[,1])
+  bb <- sum(out.coef[,2])
+  cc <- sum(abs(y - aa - bb*x))
+  res <- y - aa - bb*x
+  out.coef <- rbind(out.coef,c(aa,bb,cc))
+  #print(round(out.coef,5))
+  list(a = aa, b = bb, res = res, coef=out.coef)
+}
+bootprog = function (x,nsim)
+{
+  # This program is a silly program which will be used to estimate the
+  # bootstap error of the sample median statistic
+  #  the input data is a vector x of data.
+  #  nsim is the number of bootstrap simulations
+  n = length(x)
+  index = 1:n
+  m = median(x)
+  stat = numeric(nsim)
+  ooberr = numeric(nsim)
+  for (i in 1:nsim){
+    sampleindex= sample(index,n,replace=TRUE)
+    stat[i] = median(x[sampleindex])
+    oobindex = setdiff(index,unique(sampleindex))
+    oobdat = x[oobindex]
+    ooberr[i] = sum((oobdat-stat[i])^2)/length(oobindex)
+  }
+  bias = m - mean(stat)
+  variance = var(stat)
+  se = sqrt(variance)
+  avgooberr = mean(ooberr)
+  output = list(bias=bias,var=variance,se=se,avgooberr=avgooberr)
+  output
+}
+
+cvprog = function (x,nfold)
+{
+  # This program is a silly program which will be used to estimate the
+  # crossvalidation error of the sample median statistic
+  # the input data is a vector x of data.
+  #  nfold is the number of folds you want to divide your data up into
+  n = length(x)
+  m = floor(n/nfold)
+  # Generally speaking n/nfold would be an integer, however if it is not
+  # and the remainder of n/nfold is k then we will take the extra k datapoints
+  # and give them to the first k folds.
+  folds = rep(1:nfold,m)
+  k = n - length(folds)
+  if(k>0){folds = c(folds,1:k)}
+  # now folds is of length n and we can randomly permute the indicies
+  foldindicies = sample(folds,n,replace=FALSE)
+  m = median(x)
+  stat = numeric(nfold)
+  cverr = numeric(nfold)
+  for (i in 1:nfold){
+    b = foldindicies == i
+    stat[i] = median(x[!b])
+    cverr[i] = sum((x[b]-stat[i])^2)/length(x[b])
+  }
+  bias = m - mean(stat)
+  variance = var(stat)
+  se = sqrt(variance)
+  avgcverr = mean(cverr)
+  output = list(bias=bias,var=variance,se=se,avgcverr=avgcverr)
+  output
+}
+
+getOOBforBootstrap = function(oobdata) {
+  # Based on the class slides and hints from the professor,
+  # this function calculates rrline for
+  # the oob data to get a and b, shuffles the residuals, 
+  # adds them to the original data
+  # calculate rr line again to get new a and b, this is repeated till we have 
+  # n estimates of a and b where n is the number of oob samples
+  # oobdata
+  originalData = oobdata
+  n = length(originalData[[1]])
+  aOutofBag = numeric(n)
+  bOutofBag = numeric(n)
+  for (q in 1: n) {
+    results = run.rrline(originalData[[1]], originalData[[2]])
+    residuals = results$res
+    aOutofBag[q] = results$a
+    bOutofBag[q] = results$b
+    shuffledResiduals = sample(residuals)
+    originalData[[2]] = oobdata[[2]] + shuffledResiduals
+  } 
+  list(a0 = aOutofBag, b0 = bOutofBag)
+}
+
+
+
+rrlineWithBootstrap = function(data, nsim) {
+  # This function runs rrline with bootstrapping
+  n = length(data[[1]])
+  index = 1:n
+  
+  # We maintain 2 different stats and oob for each a and b
+  statA = numeric(nsim)
+  statB = numeric(nsim)
+  ooberrA = numeric(nsim)
+  ooberrB = numeric(nsim)
+  
+  # Run rrline to get initial statistic on entire data,
+  # for confirmatory purposes only
+  results = run.rrline(data[[1]], data[[2]])
+  a = results$a
+  b = results$b
+  
+  #Run nsim times
+  for (i in 1:nsim){
+    sampleindex= sample(index,n,replace=TRUE)
+    results = run.rrline(data[[1]][sampleindex], data[[2]][sampleindex])
+    statA[i] = results$a
+    statB[i] = results$b
+    
+    oobindex = setdiff(index,unique(sampleindex))
+    oobResults = getOOBforBootstrap(data[oobindex,])
+    
+    ooberrA[i] = sum((oobResults$a0-statA[i])^2)/length(oobindex)
+    ooberrB[i] = sum((oobResults$b0-statB[i])^2)/length(oobindex)
+  }
+  
+  # Calculate bias and variance
+  biasA = a - mean(statA)
+  varianceA = var(statA)
+  biasB = b - mean(statB)
+  varianceB = var(statB)
+  
+  # Calculate standard error and average oob error
+  seA = sqrt(varianceA)
+  seB = sqrt(varianceB)
+  avgooberrA = mean(ooberrA)
+  avgooberrB = mean(ooberrB)
+  
+  output = list(a= mean(statA), b = mean(statB),
+                biasA=biasA,varA=varianceA, biasB = biasB, varB = varianceB,
+                seA=seA,seB = seB, ooberrA = ooberrA, ooberrB = ooberrB,
+                avgooberrA=avgooberrA, avgooberrB = avgooberrB)
+  output
+}
+
+q4Data = data.frame(faithful$waiting, faithful$eruptions)
+colnames(q4Data) <- c("Waiting", "Eruptions")
+plot(q4Data)
+
+```
+
+Solution 5
+
+```{r,eval=TRUE}
+library(DAAG)
+getOOBforCV = function(oobdata) {
+originalData = oobdata
+ n = length(originalData[[1]])
+ aOutofBag = numeric(n)
+ bOutofBag = numeric(n)
+ for (q in 1: n) {
+ results = run.rrline(originalData[[1]], originalData[[2]])
+ residuals = results$res
+ aOutofBag[q] = results$a
+ bOutofBag[q] = results$b
+ shuffledResiduals = sample(residuals)
+ originalData[[2]] = oobdata[[2]] + shuffledResiduals
+ }
+ print(aOutofBag)
+ print(bOutofBag)
+ list(a0 = aOutofBag, b0 = bOutofBag)
+}
+newcvprog = function (x,nfold)
+{
+ n = length(x)
+ m = floor(n/nfold)
+
+ folds = rep(1:nfold,m)
+ k = n - length(folds)
+ if(k>0){folds = c(folds,1:k)}
+ foldindicies = sample(folds,n,replace=FALSE)
+ statA = numeric(nfold)
+ statB = numeric(nfold)
+
+ ooberrA = numeric(nfold)
+ ooberrB = numeric(nfold)
+ results = run.rrline(x[[1]], x[[2]])
+ a = results$a
+ b = results$b
+
+ statA = numeric(nfold)
+ statB = numeric(nfold)
+
+ cverrA = numeric(nfold)
+ cverrB = numeric(nfold)
+
+ for (i in 1:nfold){
+ print(paste("Fold ", i))
+ p = foldindicies == i
+ resultiter = run.rrline(x[[1]][!p], x[[2]][!p])
+ statA[i] = resultiter$a
+ statB[i] = resultiter$b
+
+ print(statA)
+ print(statB)
+ oobResults = getOOBforCV(x[p,])
+ cverrA[i] = sum((oobResults$a0-statA[i])^2)/length(p)
+ cverrB[i] = sum((oobResults$b0-statB[i])^2)/length(p)
+
+ }
+ biasA = a - mean(statA)
+ varianceA = var(statA)
+
+
+ biasB = b - mean(statB)
+ varianceB = var(statB)
+
+ seA = sqrt(varianceA)/sqrt(nfold)
+ seB = sqrt(varianceB)/sqrt(nfold)
+
+ avgcverrA = mean(cverrA)
+ avgcverrB = mean(cverrB)
+
+ output = list(biasA=biasA, varA=varianceA,
+ biasB = biasB, varB = varianceB,
+ seA=seA, seB=seB,
+ avgcverrA=avgcverrA, avgcverrB = avgcverrB)
+ output
+}
+q5Data = data.frame(faithful$waiting, faithful$eruptions)
+colnames(q5Data) <- c("Waiting", "Eruptions")
+resultsq5 = newcvprog(q5Data, 3)
+test = c(1,2,3,4,5,6,7)
+sd(test)/sqrt(length(test))
+sqrt(var(test))/sqrt(length(test))
+mydata<-as.data.frame(faithful)
+fit<-lm(eruptions~waiting,mydata)
+cv.lm(mydata, fit, m=3)
+
+
+
+```
+

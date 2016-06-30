@@ -1,0 +1,29 @@
+library(cluster)
+vote=votes.repub
+vote_calc= function(vote,lower,upper)
+{
+  colours=c("blue","black","red","deeppink","red","purple","green","brown",
+            "orange","violet")
+  par(xpd=NA,oma=c(0,0,0,6))
+  for(i in lower:upper)
+  {
+    vote_t=vote[i,]
+    vote_t=as.data.frame(t(vote_t))
+    vote_ts=ts(vote_t,frequency=0.25,start=1856)
+    if(i==lower)
+    {
+      plot(vote_ts,col=colours[1],ylim=range(0,100),xlim=range(1856,1976),
+           ylab=paste(lower,"-",upper,"states"))
+    }
+    else
+      lines(vote_ts,col=colours[i%%10])
+  }
+  legend(1982,150,legend=row.names(vote[lower:upper,]),
+         fill=colours,title="States")
+  segments(1852,50,1980,50,col="grey65",lty=2)
+}
+vote_calc(vote,1,10)
+vote_calc(vote,11,20)
+vote_calc(vote,21,30)
+vote_calc(vote,31,40)
+vote_calc(vote,41,50)

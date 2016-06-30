@@ -1,0 +1,167 @@
+---
+title: "Mid Term (S-670)"
+author: "FNU Anirudh"
+date: "November 4, 2015"
+output: word_document
+---
+
+Solution 1:-
+
+```{r,eval=TRUE}
+library(aplpack)
+wt2<- c(143,-184,182,-110,1017,986,1010,-111,-60,-151,-111,1024,1031,1028)
+summ=summary(wt2)
+summ
+stem.leaf(wt2)
+boxplot(wt2,horizontal=TRUE,main="Box Plot of wt2")
+
+```
+
+Solution 2:- 
+
+n=5000
+
+Number of Outliers= 0.4+0.007*n
+
+Outliers= 0.4+ 0.007* 5000= 35.4
+
+Solution 3:- 
+
+a) 
+Data is left skewed and transformation would be make data symmetric.
+X= ((d_u)^2 + (d_l)^2) / (4M) , Y = ((d_u) - (d_l)) / 2 
+Where (d_u) and (d_l) = distance from (x_l) and (x_u) to M. 
+Using this we will now calculate the slope and then the value of power transform.
+b)
+Spreads are large and it's necessary to transform data to do better
+analysis of spread versus level plot and will give good estimate of
+mid summaries and accordingly we can use transformation.
+X= log M, Y= log(d_f) is F-spread and M is the median for all batches.
+c)
+Since there are heavy tails which won't go even after transformation hence
+transformation will not be a good idea.
+d)
+There is one heavy tail and one light tail hence we can say that there
+is skewness in data hence we need to perform transformation since it is
+single batch we will plot transformation plot between
+X= ((d_u)^2 + (d_l)^2) / (4M) , Y = ((d_u) - (d_l)) / 2 
+Where (d_u) and (d_l) = distance from (x_l) and (x_u) to M.
+We can know the power transformation.
+
+Solution 4
+
+A linear smoother means that the vector y-hat of predicted values at the
+observed predictor values is a linear function of the data vector y.
+
+Types of Linear Smoothers
+
+1. Kernel Smoother
+2. Lowess Smoother
+
+Problems with Linear Smoothers
+
+1) Strongly affected by outliers
+2) Smooth over sharp features
+
+Advantage of Non- Linear Smoother
+
+* reduce influence of outliers and easy to do by hand
+
+Disadvantage of Linear Smoother
+
+* cannot be expressed as summation of wiyi
+
+Solution 5
+
+```{r,eval=TRUE}
+time<- c(0.450,0.45,0.450,1.300,1.300,1.300,2.400,2.400,2.400,4.000,4.00,
+         4.000,6.100,6.100,6.100,8.05,8.050,8.050,11.150,11.150,11.150,
+         13.150,13.150,13.150,15.000,15.00,15.000)
+cal<- c(0.342,0.00,0.825,1.780,0.954,0.641,1.751,1.275,1.173,3.123,2.61
+        ,2.574,3.179,3.008,2.671,3.06,3.943,3.437,4.807,3.356,2.783,5.138
+        ,4.703,4.257,3.604,4.15,3.425)
+source("rrline.r")
+rr=rrline1(time,cal)
+# a)
+inter=rr$a
+slope=rr$b
+inter
+slope
+# b) To straighten the plot, we need to do re-expression or perform
+# transformation.
+# c)
+plot(time,cal)
+plot(sqrt(time),cal)
+abline(inter,slope)
+# I have applied square root transformation
+
+# d)
+rr2=rrline1(sqrt(time),cal)
+rr2
+inter2=rr2$a
+slope2=rr2$b
+inter2
+slope2
+# e) 
+# Panel c shows curvy trend and we can predict residuals.We need residual
+# plot where residuals are scattered all over the place and we cannot
+# find a trend then we can say that we have fit appropriate model.
+# After performing transformation Panel d we can still see that most
+# of the points are above the line and on bottom left there are no 
+# residuals which implies that transformation performed is still not
+#perfect.
+# f)
+Slope3=0.256
+Inter3=-0.124
+newy= 0.256*sqrt(time)+Inter3
+newy
+rr3=rrline1(sqrt(time),newy)
+rr3
+slopenew=rr3$a
+internew=rr3$b
+slopenew
+internew
+
+
+```
+
+Solution 6
+
+```{r,eval=TRUE}
+# a)
+T1<-c(5,6,3,11,10)
+T2<-c(14,10,6,12,21)
+T3<-c(16,24,15,26,32)
+coln<- c("A1","A2","A3","A4","A5")
+flyinsctble<-rbind(T1,T2,T3)
+colnames(flyinsctble)<-coln
+flyinsctble.MP<-medpolish(flyinsctble)
+flyinsctble.MP
+# Row Effects shows that Flying insects visits T3 (Pink) most followed by
+# white which is second most visisted and then red which is least visited.
+# Column effect shows that insects visit A5 most then A4 then A2, then A1
+# lastly A3. A5 > A4 >A2 > A1 > A3
+# b) 
+sum.residual<- sum(abs(flyinsctble.MP$residuals))
+sum.data <- sum(abs(flyinsctble - flyinsctble.MP$overall))
+Analog.RSqr<- 1-(sum.residual/sum.data)
+Analog.RSqr
+# c)
+# Diagnositc Plot is plot between residuals and comparision values.The
+# Plot reveals trends or patterns and helps us understand if data is
+# systematic or not from additive model.
+# Before plotting diagnositc plot, we should have analyzed residuals
+# and know that there is a problem with non-additivity and we already
+# expect trends. The slope helps us in transformation to remove
+# non-additivity.
+# We plot the diagnostic plot between the residuals on y-axis and 
+# comparision values on x-axis.
+source("myplotfit.r")
+myplotfit(flyinsctble.MP)
+#We see that the affect of (T3,A4) = 26 and (T2,A5) nearly 24 are 
+#almost similiar, they have the same affect.
+
+```
+
+Solution 7
+

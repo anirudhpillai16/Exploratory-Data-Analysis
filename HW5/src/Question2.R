@@ -1,0 +1,80 @@
+#a)
+r1<-c(22.2,44.5,59.6,73.2,86.8)
+r2<-c(10.5, 15.5, 29.0,36.5,46.2)
+r3<-c(3.53, 5.76, 9.71, 14.0, 21.1)
+r4<-c(1.04, 1.98, 2.45, 3.40, 5.40)
+r5<-c(.641, .974, 1.80, 2.60, 3.64)
+
+rowNames<-c("Food/Tobacco","Household","Medical/Health","Personal care","Educ/research")
+colNames<-c(1940, 1945, 1950, 1955, 1960)
+personalExpenditureTable <- rbind(r1,r2,r3,r4,r5)
+rownames(personalExpenditureTable)<-rowNames
+colnames(personalExpenditureTable)<-colNames
+
+medPolished<-medpolish(personalExpenditureTable)
+AnalogRSqr<- 1-((sum(abs(medPolished$residuals))) /(sum(abs(personalExpenditureTable-medPolished$overall))))
+AnalogRSqr
+
+#b)
+plot(NA, NA, type = "n", xlim=c(1, 5), ylim=c(1, 5), xlab = "Rows",ylab = "Columns")
+for (i in 1:nrow(medPolished$residuals)){
+  for (j in 1:ncol(medPolished$residuals)){
+    if (medPolished$residuals[i,j]<0) {
+      symbols(i,j,circles=abs(medPolished$residuals[i,j]/100),inches = FALSE,add=T)
+    }
+    else {
+      symbols(i,j,squares=abs(medPolished$residuals[i,j]/100),inches = FALSE,add=T)}
+  }
+}
+
+#From Plot we can say that value in bottom left and upper right are
+# negative, whereas for bottom right and upper left they are positive.
+
+#c)
+x<- vector()
+y<- vector()
+for(i in 1:length(medPolished$row)){
+  for(j in 1:length(medPolished$col)){
+    x<- c(x,(medPolished$row[i] * medPolished$col[j])/medPolished$overall)
+  }
+  
+}
+
+
+residuals<-vector()
+for (i in 1:5){
+  residuals<-c(residuals,medPolished$residuals[i,])
+}
+plot(x,residuals,xlab="Comparison Values",ylab="Residual Values",main="Diagnostic plot")
+abline(h=0,v=0)
+fit<-lm(residuals~x)
+abline(fit)
+
+#d)
+
+PETable.log<-log(personalExpenditureTable)
+PETable.log<-matrix(PETable.log,c(5,5))
+dimnames(PETable.log)=list(c("Food/Tobacco","Household","Medical/Health","Personal Care","Educ / Research"),c("1940","1945","1950","1955","1960")) 
+PETable.log.MP <- medpolish(PETable.log)
+
+MedianPolishdata<-rbind(PETable.log,PETable.log.MP$col)
+MedianPolishdata<-cbind(MedianPolishdata,PETable.log.MP$row)
+colnames(MedianPolishdata)[6]<-"Row Effect"
+rownames(MedianPolishdata)[6]<-"Column Effect"
+MedianPolishdata[6,6]<-medPolished$overall
+
+#After transformation
+MedianPolishdata 
+
+sum_res<-sum(abs(PETable.log.MP$residual))
+sum_data<-sum(abs(PETable.log-PETable.log.MP$overall))
+Analogrsquare<-1-(sum_res/sum_data)
+# AnalogRSquare after Transformation
+Analogrsquare
+
+#e)
+source('myplotfit.R')
+myplotfit(PETable.log.MP)
+#Category has much larger effect than time because row effects are larger 
+#than column effects
+
